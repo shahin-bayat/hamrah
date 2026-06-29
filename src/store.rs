@@ -1,5 +1,10 @@
 use sha2::{Digest, Sha256};
-use std::{fmt::Write, fs::create_dir_all, io, path::PathBuf};
+use std::{
+    fmt::Write,
+    fs::create_dir_all,
+    io,
+    path::{Path, PathBuf},
+};
 
 pub struct Store {
     objects_dir: PathBuf,
@@ -25,6 +30,10 @@ impl Store {
     pub fn read(&self, hash: &str) -> io::Result<Vec<u8>> {
         let path = self.objects_dir.join(hash);
         std::fs::read(&path)
+    }
+
+    pub fn is_internal(&self, path: &Path) -> bool {
+        path.starts_with(&self.objects_dir)
     }
 }
 
