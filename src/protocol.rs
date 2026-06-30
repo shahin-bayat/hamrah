@@ -40,6 +40,7 @@ impl Message {
             Self::Blob { hash, bytes } => {
                 let mut p = vec![3u8];
                 put_str(&mut p, hash);
+                p.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
                 p.extend_from_slice(bytes);
                 p
             }
@@ -78,6 +79,30 @@ impl Message {
                 }
                 Ok(Message::Manifest(map))
             }
+            2 => {
+                let mut cur = Cursor::new(&payload[1..]);
+                let mut hashes_len_buf = [0u8; 4];
+                cur.read_exact(&mut hashes_len_buf)?;
+                let hashes_len = u32::from_be_bytes(hashes_len_buf);
+
+                let mut hashes = Vec::new();
+                for _ in 0..hashes_len {
+                    let hash = get_str(&mut cur)?;
+                    hashes.push(hash);
+                }
+                Ok(Message::WantBlobs(hashes))
+            }
+            3 => {
+                let mut cur = Cursor::new(&payload[1..]);
+                let hash = get_str(&mut cur)?;
+                let bytes = get_bytes(&mut cur)?;
+                Ok(Message::Blob { hash, bytes })
+            }
+            4 => {
+                let mut cur = Cursor::new(&payload[1..]);
+                let path = get_str(&mut cur)?;
+                Ok(Message::Deleted(path))
+            }
             _ => Err(io::Error::new(io::ErrorKind::InvalidData, "invalid tag")),
         }
     }
@@ -88,13 +113,17 @@ fn put_str(buf: &mut Vec<u8>, s: &str) {
     buf.extend_from_slice(s.as_bytes());
 }
 
-fn get_str(r: &mut impl io::Read) -> io::Result<String> {
+fn get_bytes(r: &mut impl io::Read) -> io::Result<Vec<u8>> {
     let mut len_buf = [0u8; 4];
     r.read_exact(&mut len_buf)?;
     let len = u32::from_be_bytes(len_buf) as usize;
-
     let mut buf = vec![0u8; len];
     r.read_exact(&mut buf)?;
+    Ok(buf)
+}
+
+fn get_str(r: &mut impl io::Read) -> io::Result<String> {
+    let buf = get_bytes(r)?;
     String::from_utf8(buf).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "bad utf8"))
 }
 
