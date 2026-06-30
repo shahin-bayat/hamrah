@@ -136,6 +136,50 @@ mod tests {
         let msg = Message::Hello { version: 1 };
         let framed = msg.encode();
         let decoded = Message::decode(&framed[4..]).unwrap();
-        assert_eq!(decoded, Message::Hello { version: 1 });
+        assert_eq!(decoded, msg);
+    }
+
+    #[test]
+    fn manifest_round_trips() {
+        let mut map = HashMap::new();
+        map.insert("src/main.rs".to_string(), "a3f8".to_string());
+        map.insert("README.md".to_string(), "9c12".to_string());
+        let msg = Message::Manifest(map);
+
+        let framed = msg.encode();
+        let decoded = Message::decode(&framed[4..]).unwrap();
+        assert_eq!(decoded, msg);
+    }
+
+    #[test]
+    fn want_blobs_round_trips() {
+        let msg = Message::WantBlobs(vec!["a3f8".to_string(), "9c12".to_string()]);
+        let framed = msg.encode();
+        let decoded = Message::decode(&framed[4..]).unwrap();
+        assert_eq!(decoded, msg);
+    }
+
+    #[test]
+    fn blob_round_trips() {
+        let msg = Message::Blob {
+            hash: "a3f8".to_string(),
+            bytes: vec![0, 255, 10, 200, 0],
+        };
+        let framed = msg.encode();
+        let decoded = Message::decode(&framed[4..]).unwrap();
+        assert_eq!(decoded, msg);
+    }
+
+    #[test]
+    fn deleted_round_trips() {
+        let msg = Message::Deleted("src/old.rs".to_string());
+        let framed = msg.encode();
+        let decoded = Message::decode(&framed[4..]).unwrap();
+        assert_eq!(decoded, msg);
+    }
+
+    #[test]
+    fn rejects_unknown_tag() {
+        assert!(Message::decode(&[99]).is_err());
     }
 }
