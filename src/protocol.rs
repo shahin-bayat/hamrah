@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io};
 
+#[derive(Debug, PartialEq)]
 pub enum Message {
     Hello { version: u16 },
     Manifest(HashMap<String, String>),
@@ -33,16 +34,51 @@ impl Message {
                 }
                 p
             }
-
-            _ => todo!(),
+            Self::Blob { hash, bytes } => {
+                let mut p = vec![3u8];
+                put_str(&mut p, hash);
+                p.extend_from_slice(bytes);
+                p
+            }
+            Self::Deleted(path) => {
+                let mut p = vec![4u8];
+                put_str(&mut p, path);
+                p
+            }
         };
         let mut frame = (payload.len() as u32).to_be_bytes().to_vec();
         frame.extend_from_slice(&payload);
         frame
+    }
+
+    pub fn decode(payload: &[u8]) -> io::Result<Message> {
+        let tag = payload[0];
+        match tag {
+            0 => {
+                let version = u16::from_be_bytes(payload[1..3].try_into().unwrap());
+                Ok(Message::Hello { version })
+            }
+            _ => {
+                todo!()
+            }
+        }
     }
 }
 
 fn put_str(buf: &mut Vec<u8>, s: &str) {
     buf.extend_from_slice(&(s.len() as u32).to_be_bytes());
     buf.extend_from_slice(s.as_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hello_round_trips() {
+        let msg = Message::Hello { version: 1 };
+        let framed = msg.encode();
+        let decoded = Message::decode(&framed[4..]).unwrap();
+        assert_eq!(decoded, Message::Hello { version: 1 });
+    }
 }
