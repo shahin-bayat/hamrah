@@ -34,4 +34,24 @@ mod tests {
 
         assert_eq!(got, msg);
     }
+
+    #[tokio::test]
+    async fn round_trips_over_tcp() {
+        use tokio::net::{TcpListener, TcpStream};
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            read_msg(&mut sock).await.unwrap()
+        });
+
+        let msg = Message::Hello { version: 42 };
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        write_msg(&mut client, &msg).await.unwrap();
+
+        let got = server.await.unwrap();
+        assert_eq!(got, msg);
+    }
 }
