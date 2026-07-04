@@ -35,6 +35,10 @@ impl Store {
     pub fn is_internal(&self, path: &Path) -> bool {
         path.starts_with(&self.objects_dir)
     }
+
+    pub fn has(&self, hash: &str) -> bool {
+        self.objects_dir.join(hash).exists()
+    }
 }
 
 pub fn hash(bytes: &[u8]) -> String {
