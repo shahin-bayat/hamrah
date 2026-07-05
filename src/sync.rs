@@ -4,7 +4,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::{manifest, protocol::Message, store::Store, transport};
 
-pub fn apply(manifest: &HashMap<String, String>, store: &Store, dest: &Path) -> io::Result<()> {
+fn apply(manifest: &HashMap<String, String>, store: &Store, dest: &Path) -> io::Result<()> {
     for (rel_path, hash) in manifest {
         let path = dest.join(rel_path);
         let bytes = store.read(hash)?;
