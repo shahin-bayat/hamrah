@@ -14,6 +14,7 @@ pub async fn read_msg<R: AsyncReadExt + Unpin>(r: &mut R) -> io::Result<Message>
     r.read_exact(&mut msg_len_buf).await?;
     let msg_len = u32::from_be_bytes(msg_len_buf) as usize;
 
+    // TODO: cap msg_len before network exposure (unbounded alloc = DoS)
     let mut payload = vec![0u8; msg_len];
     r.read_exact(&mut payload).await?;
     Message::decode(&payload)
