@@ -54,16 +54,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "devsync"
-version = "0.1.0"
-dependencies = [
- "sha2",
- "tempfile",
- "tokio",
- "walkdir",
-]
-
-[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -99,6 +89,16 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+]
+
+[[package]]
+name = "hamrah"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+ "tempfile",
+ "tokio",
+ "walkdir",
 ]
 
 [[package]]

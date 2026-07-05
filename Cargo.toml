@@ -1,7 +1,9 @@
 [package]
-name = "devsync"
+name = "hamrah"
 version = "0.1.0"
 edition = "2024"
+description = "Content-addressed folder sync — keep a directory identical across your machines."
+license = "MIT"
 
 [dependencies]
 sha2 = "0.11.0"

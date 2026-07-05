@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf};
 
-use devsync::{store::Store, sync};
+use hamrah::{store::Store, sync};
 use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main]
@@ -9,10 +9,10 @@ async fn main() -> std::io::Result<()> {
     let mode = args.get(1).map(String::as_str);
     let addr = args
         .get(2)
-        .expect("usage: devsync <send|receive> <addr> <dir>");
+        .expect("usage: hamrah <send|receive> <addr> <dir>");
     let dir = PathBuf::from(args.get(3).expect("need <dir>"));
 
-    let store = Store::new(dir.join(".devsync"))?;
+    let store = Store::new(dir.join(".hamrah"))?;
 
     match mode {
         Some("send") => {
@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
             let (mut stream, _) = listener.accept().await?;
             sync::receive(&mut stream, &dir, &store).await?;
         }
-        _ => eprintln!("usage: devsync <send|receive> <addr> <dir>"),
+        _ => eprintln!("usage: hamrah <send|receive> <addr> <dir>"),
     }
     Ok(())
 }

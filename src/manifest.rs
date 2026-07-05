@@ -56,7 +56,7 @@ mod tests {
         fs::write(root.join("a.txt"), b"hello").unwrap();
 
         // store placed inside the synced root
-        let store = Store::new(root.join(".devsync")).unwrap();
+        let store = Store::new(root.join(".hamrah")).unwrap();
 
         let manifest = build(root, &store).unwrap();
 

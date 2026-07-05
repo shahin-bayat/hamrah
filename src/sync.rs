@@ -10,8 +10,8 @@ fn apply(manifest: &HashMap<String, String>, store: &Store, dest: &Path) -> io::
         let bytes = store.read(hash)?;
 
         // nested files:
-        // dest: code , path: code/rust/devsync/src/main.rs
-        // parent = code/rust/devsync/src
+        // dest: code , path: code/rust/hamrah/src/main.rs
+        // parent = code/rust/hamrah/src
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }

@@ -1,4 +1,4 @@
-//! devsync — content-addressed folder sync.
+//! hamrah — content-addressed folder sync.
 pub mod manifest;
 pub mod protocol;
 pub mod store;
