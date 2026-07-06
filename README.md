@@ -13,7 +13,7 @@ Name: *hamrah* (ham-raah), Persian همراه — "companion; travels with you."
 - [x] Length-prefixed wire protocol
 - [x] Async TCP transport
 - [x] One-way sync (writes real files)
-- [ ] File watcher (auto-sync on change)
+- [x] File watcher (auto-sync on change)
 - [ ] Bidirectional sync + diff
 - [ ] TLS + peer auth
 - [ ] Multi-peer + discovery
