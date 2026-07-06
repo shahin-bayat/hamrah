@@ -6,6 +6,7 @@ description = "Content-addressed folder sync — keep a directory identical acro
 license = "MIT"
 
 [dependencies]
+notify = "8.2.0"
 sha2 = "0.11.0"
 tokio = { version = "1.52.3", features = ["full"] }
 walkdir = "2.5.0"
