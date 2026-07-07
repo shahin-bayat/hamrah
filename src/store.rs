@@ -23,6 +23,7 @@ impl Store {
         if path.exists() {
             return Ok(h);
         }
+        // TODO: not crash-atomic; a truncated file still passes has()
         std::fs::write(&path, bytes)?;
         Ok(h)
     }
