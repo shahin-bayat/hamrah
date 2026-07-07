@@ -24,6 +24,31 @@ pub fn build(root: &Path, store: &Store) -> io::Result<HashMap<String, String>> 
     Ok(manifest)
 }
 
+pub struct Diff {
+    pub request: HashMap<String, String>,
+    pub conflicts: Vec<String>,
+}
+
+pub fn diff(mine: &HashMap<String, String>, theirs: &HashMap<String, String>) -> Diff {
+    let mut request: HashMap<String, String> = HashMap::new();
+    let mut conflicts = Vec::new();
+
+    for (path, hash) in theirs {
+        match mine.get(path) {
+            Some(h) => {
+                if hash != h {
+                    conflicts.push(path.to_string());
+                }
+            }
+            None => {
+                request.insert(path.to_string(), hash.to_string());
+            }
+        }
+    }
+
+    Diff { request, conflicts }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,5 +87,25 @@ mod tests {
 
         assert_eq!(manifest.len(), 1); // only a.txt — NOT the store's own blobs
         assert!(manifest.contains_key("a.txt"));
+    }
+
+    #[test]
+    fn diff_classifies_paths() {
+        let mine = HashMap::from([
+            ("a".to_string(), "h1".to_string()),
+            ("shared".to_string(), "h2".to_string()),
+            ("conf".to_string(), "hA".to_string()),
+        ]);
+        let theirs = HashMap::from([
+            ("b".to_string(), "h3".to_string()),
+            ("shared".to_string(), "h2".to_string()),
+            ("conf".to_string(), "hB".to_string()),
+        ]);
+
+        let d = diff(&mine, &theirs);
+
+        assert_eq!(d.request.get("b"), Some(&"h3".to_string()));
+        assert_eq!(d.request.len(), 1);
+        assert_eq!(d.conflicts, vec!["conf".to_string()]);
     }
 }
