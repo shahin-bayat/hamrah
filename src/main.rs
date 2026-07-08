@@ -31,7 +31,7 @@ async fn main() -> std::io::Result<()> {
                 .map_err(io::Error::other)?;
             loop {
                 let mut stream = TcpStream::connect(addr).await?;
-                sync::send(&mut stream, &dir, &store).await?;
+                sync::sync(&mut stream, &dir, &store).await?;
                 println!("synced");
 
                 if rx.recv().await.is_none() {
@@ -46,7 +46,7 @@ async fn main() -> std::io::Result<()> {
             let listener = TcpListener::bind(addr).await?;
             loop {
                 let (mut stream, _) = listener.accept().await?;
-                sync::receive(&mut stream, &dir, &store).await?;
+                sync::sync(&mut stream, &dir, &store).await?;
                 println!("received!");
             }
         }
