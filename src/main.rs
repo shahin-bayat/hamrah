@@ -30,8 +30,8 @@ async fn main() -> std::io::Result<()> {
                 .watch(&dir, RecursiveMode::Recursive)
                 .map_err(io::Error::other)?;
             loop {
-                let mut stream = TcpStream::connect(addr).await?;
-                sync::sync(&mut stream, &dir, &store).await?;
+                let stream = TcpStream::connect(addr).await?;
+                sync::sync(stream, &dir, &store).await?;
                 println!("synced");
 
                 if rx.recv().await.is_none() {
@@ -45,8 +45,8 @@ async fn main() -> std::io::Result<()> {
         Some("receive") => {
             let listener = TcpListener::bind(addr).await?;
             loop {
-                let (mut stream, _) = listener.accept().await?;
-                sync::sync(&mut stream, &dir, &store).await?;
+                let (stream, _) = listener.accept().await?;
+                sync::sync(stream, &dir, &store).await?;
                 println!("received!");
             }
         }

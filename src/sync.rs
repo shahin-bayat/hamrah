@@ -26,53 +26,83 @@ fn apply(manifest: &HashMap<String, String>, store: &Store, dest: &Path) -> io::
     Ok(())
 }
 
+enum WriterCmd {
+    Send(Message),
+    Close,
+}
+
 pub async fn sync<S: AsyncRead + AsyncWriteExt + Unpin>(
-    stream: &mut S,
+    stream: S,
     root: &Path,
     store: &Store,
 ) -> io::Result<()> {
+    let (mut rd, mut wr) = tokio::io::split(stream);
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<WriterCmd>();
+
     let mine = manifest::build(root, store)?;
-    let mut request: HashMap<String, String> = HashMap::new();
-    let mut received = 0usize;
 
-    transport::write_msg(stream, &Message::Hello { version: 1 }).await?;
-    transport::write_msg(stream, &Message::Manifest(mine.clone())).await?;
+    queue_cmd(&tx, WriterCmd::Send(Message::Hello { version: 1 }))?;
+    queue_cmd(&tx, WriterCmd::Send(Message::Manifest(mine.clone())))?;
 
-    loop {
-        match transport::read_msg(stream).await? {
-            Some(Message::Manifest(theirs)) => {
-                let d = manifest::diff(&mine, &theirs);
-                request = d.request;
-                let want: Vec<String> = request.values().cloned().collect();
-                transport::write_msg(stream, &Message::WantBlobs(want)).await?;
+    let writer = async move {
+        while let Some(out) = rx.recv().await {
+            match out {
+                WriterCmd::Send(msg) => transport::write_msg(&mut wr, &msg).await?,
+                WriterCmd::Close => break,
             }
-            Some(Message::WantBlobs(hashes)) => {
-                for h in hashes {
-                    let bytes = store.read(&h)?;
-                    transport::write_msg(stream, &Message::Blob { hash: h, bytes }).await?;
-                }
-                // serving is our final send (our WantBlobs already went out on their Manifest)
-                stream.shutdown().await?;
-            }
-            Some(Message::Blob { bytes, .. }) => {
-                store.write(&bytes)?;
-                received += 1;
-            }
-            Some(_) => {}  // Hello
-            None => break, // peer closed
         }
-    }
+        wr.shutdown().await
+    };
 
-    if received != request.len() {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "truncated sync",
-        ));
-    }
+    let reader = async move {
+        let mut request: HashMap<String, String> = HashMap::new();
+        let mut received = 0usize;
 
-    let mut merged = mine;
-    merged.extend(request);
+        loop {
+            match transport::read_msg(&mut rd).await? {
+                Some(Message::Manifest(theirs)) => {
+                    let d = manifest::diff(&mine, &theirs);
+                    request = d.request;
+                    let want: Vec<String> = request.values().cloned().collect();
+
+                    queue_cmd(&tx, WriterCmd::Send(Message::WantBlobs(want)))?;
+                }
+                Some(Message::WantBlobs(hashes)) => {
+                    for h in hashes {
+                        let bytes = store.read(&h)?;
+                        queue_cmd(&tx, WriterCmd::Send(Message::Blob { hash: h, bytes }))?;
+                    }
+                    queue_cmd(&tx, WriterCmd::Close)?;
+                }
+                Some(Message::Blob { bytes, .. }) => {
+                    store.write(&bytes)?;
+                    received += 1;
+                }
+                Some(_) => {}
+                None => break,
+            }
+        }
+
+        if received != request.len() {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "truncated sync",
+            ));
+        }
+        let mut merged = mine;
+        merged.extend(request);
+        Ok(merged)
+    };
+
+    let (merged, written) = tokio::join!(reader, writer);
+    let merged = merged?;
+    written?;
     apply(&merged, store, root)
+}
+
+fn queue_cmd(tx: &tokio::sync::mpsc::UnboundedSender<WriterCmd>, out: WriterCmd) -> io::Result<()> {
+    tx.send(out)
+        .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "writer closed"))
 }
 
 #[cfg(test)]
@@ -116,11 +146,11 @@ mod tests {
         let b_store = Store::new(b_dir.path().to_path_buf()).unwrap();
         fs::write(b_dir.path().join("b.txt"), b"world").unwrap();
 
-        let (mut a, mut b) = tokio::io::duplex(4096);
+        let (a, b) = tokio::io::duplex(4096);
 
         let (rs, rr) = tokio::join!(
-            sync(&mut a, a_dir.path(), &a_store),
-            sync(&mut b, b_dir.path(), &b_store),
+            sync(a, a_dir.path(), &a_store),
+            sync(b, b_dir.path(), &b_store),
         );
         rs.unwrap();
         rr.unwrap();
