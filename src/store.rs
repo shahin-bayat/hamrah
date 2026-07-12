@@ -23,8 +23,9 @@ impl Store {
         if path.exists() {
             return Ok(h);
         }
-        // TODO: not crash-atomic; a truncated file still passes has()
-        std::fs::write(&path, bytes)?;
+        let tmp = self.objects_dir.join(format!("{h}.tmp"));
+        std::fs::write(&tmp, bytes)?;
+        std::fs::rename(&tmp, &path)?;
         Ok(h)
     }
 
@@ -81,5 +82,18 @@ mod tests {
         let result = store.read(&h).unwrap();
 
         assert_eq!(bytes, result)
+    }
+
+    #[test]
+    fn write_renames_temp_away() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_path_buf()).unwrap();
+
+        let h = store.write(b"hello").unwrap();
+
+        let objects = dir.path().join("objects");
+        assert!(objects.join(&h).exists());
+        assert!(!objects.join(format!("{h}.tmp")).exists());
+        assert_eq!(store.read(&h).unwrap(), b"hello");
     }
 }
