@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, io, path::Path};
+use std::{
+    collections::HashMap,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use tokio::io::{AsyncRead, AsyncWriteExt};
 
@@ -20,7 +24,11 @@ fn apply(manifest: &HashMap<String, String>, store: &Store, dest: &Path) -> io::
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(path, bytes)?;
+        let mut tmp = path.clone().into_os_string();
+        tmp.push(".tmp");
+        let tmp = PathBuf::from(tmp);
+        fs::write(&tmp, bytes)?;
+        fs::rename(&tmp, &path)?;
     }
 
     Ok(())
@@ -57,13 +65,20 @@ pub async fn sync<S: AsyncRead + AsyncWriteExt + Unpin>(
     let reader = async move {
         let mut request: HashMap<String, String> = HashMap::new();
         let mut received = 0usize;
+        let mut expected = 0usize;
 
         loop {
             match transport::read_msg(&mut rd).await? {
                 Some(Message::Manifest(theirs)) => {
                     let d = manifest::diff(&mine, &theirs);
                     request = d.request;
-                    let want: Vec<String> = request.values().cloned().collect();
+                    // skip blobs we already have (content-addressed dedup)
+                    let want: Vec<String> = request
+                        .values()
+                        .filter(|h| !store.has(h))
+                        .cloned()
+                        .collect();
+                    expected = want.len();
 
                     queue_cmd(&tx, WriterCmd::Send(Message::WantBlobs(want)))?;
                 }
@@ -83,7 +98,7 @@ pub async fn sync<S: AsyncRead + AsyncWriteExt + Unpin>(
             }
         }
 
-        if received != request.len() {
+        if received != expected {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "truncated sync",
@@ -134,6 +149,8 @@ mod tests {
             fs::read(dest.path().join("sub/b.txt")).unwrap(),
             b"Hello from b!"
         );
+        assert!(!dest.path().join("a.txt.tmp").exists());
+        assert!(!dest.path().join("sub/b.txt.tmp").exists());
     }
 
     #[tokio::test]
@@ -157,5 +174,27 @@ mod tests {
 
         assert_eq!(fs::read(b_dir.path().join("a.txt")).unwrap(), b"hello");
         assert_eq!(fs::read(a_dir.path().join("b.txt")).unwrap(), b"world");
+    }
+
+    #[tokio::test]
+    async fn sync_skips_blobs_already_in_store() {
+        let a_dir = tempfile::tempdir().unwrap();
+        let a_store = Store::new(a_dir.path().to_path_buf()).unwrap();
+        fs::write(a_dir.path().join("x.txt"), b"shared").unwrap();
+
+        let b_dir = tempfile::tempdir().unwrap();
+        let b_store = Store::new(b_dir.path().to_path_buf()).unwrap();
+        fs::write(b_dir.path().join("y.txt"), b"shared").unwrap(); // SAME bytes as x.txt → same hash
+
+        let (a, b) = tokio::io::duplex(4096);
+        let (ra, rb) = tokio::join!(
+            sync(a, a_dir.path(), &a_store),
+            sync(b, b_dir.path(), &b_store),
+        );
+        ra.unwrap();
+        rb.unwrap();
+
+        assert_eq!(fs::read(b_dir.path().join("x.txt")).unwrap(), b"shared");
+        assert_eq!(fs::read(a_dir.path().join("y.txt")).unwrap(), b"shared");
     }
 }
