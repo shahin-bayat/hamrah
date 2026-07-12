@@ -1,10 +1,10 @@
 # Hamrah
 
-A content-addressed folder sync tool — keep a directory identical across your machines, built on git's content model. "Dropbox for developers."
+A content-addressed folder sync tool that keeps a directory identical across all your machines, built on git's content model. A "Dropbox for developers."
 
-Name: *hamrah* (ham-raah), Persian همراه — "companion; travels with you."
+The name *hamrah* (ham-raah) is Persian (همراه) for "companion; one who travels with you."
 
-> 🚧 Early and in progress — one-way sync works end-to-end.
+> 🚧 Early and in progress. Bidirectional sync now works end-to-end over TCP.
 
 ## Status
 
@@ -14,7 +14,7 @@ Name: *hamrah* (ham-raah), Persian همراه — "companion; travels with you."
 - [x] Async TCP transport
 - [x] One-way sync (writes real files)
 - [x] File watcher (auto-sync on change)
-- [ ] Bidirectional sync + diff
+- [x] Bidirectional sync + diff
 - [ ] TLS + peer auth
 - [ ] Multi-peer + discovery
 - [ ] Lazy FUSE mount
