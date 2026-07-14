@@ -1,4 +1,5 @@
 //! hamrah — content-addressed folder sync.
+pub mod identity;
 pub mod manifest;
 pub mod protocol;
 pub mod store;
